@@ -20,13 +20,11 @@
         const { useState, useEffect } = React;
 
         // --- SAFE LOCAL STORAGE HELPERS ---
-        // These prevent the app from crashing to a blank screen if data is corrupted or blocked
         const loadSafe = (key, defaultVal) => {
             try {
                 const stored = localStorage.getItem(key);
                 if (!stored) return defaultVal;
                 const parsed = JSON.parse(stored);
-                // Ensure arrays stay arrays (prevents .map crashes)
                 if (Array.isArray(defaultVal) && !Array.isArray(parsed)) return defaultVal;
                 return parsed;
             } catch (e) {
@@ -54,7 +52,7 @@
                 e.preventDefault();
                 onPlaceOrder(customer, selectedProduct);
                 setSelectedProduct(null);
-                setCustomer({ name: '', email: '' }); // Reset form
+                setCustomer({ name: '', email: '' }); 
             };
 
             return (
@@ -119,11 +117,62 @@
         }
 
         // -----------------------------------------
-        // 2. ADMIN DASHBOARD COMPONENT
+        // 2. ADMIN LOGIN COMPONENT
         // -----------------------------------------
-        function AdminDashboard({ settings, setSettings, products, setProducts, orders }) {
+        function AdminLogin({ credentials, onLoginSuccess }) {
+            const [user, setUser] = useState('');
+            const [pass, setPass] = useState('');
+            const [error, setError] = useState('');
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (user === credentials.username && pass === credentials.password) {
+                    onLoginSuccess();
+                } else {
+                    setError('Incorrect Username or Password');
+                }
+            };
+
+            return (
+                <div className="max-w-md mx-auto mt-20 p-8 bg-gray-900/90 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl">
+                    <h2 className="text-3xl font-bold text-center text-white mb-6">Admin Portal</h2>
+                    {error && <div className="bg-red-500/20 border border-red-500 text-red-400 p-3 rounded mb-4 text-center">{error}</div>}
+                    
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label className="block text-gray-400 mb-1">Username</label>
+                            <input 
+                                type="text" required
+                                value={user} onChange={e => setUser(e.target.value)}
+                                className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" 
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-gray-400 mb-1">Password</label>
+                            <input 
+                                type="password" required
+                                value={pass} onChange={e => setPass(e.target.value)}
+                                className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" 
+                            />
+                        </div>
+                        <button type="submit" className="w-full py-3 mt-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg shadow-lg transition">
+                            Login
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        // -----------------------------------------
+        // 3. ADMIN DASHBOARD COMPONENT
+        // -----------------------------------------
+        function AdminDashboard({ settings, setSettings, products, setProducts, orders, adminAuth, setAdminAuth, onLogout }) {
             const [activeTab, setActiveTab] = useState('products');
             const [newProduct, setNewProduct] = useState({ name: '', price: '', description: '', redirectUrl: '' });
+            
+            // State for changing admin credentials
+            const [newAuth, setNewAuth] = useState({ username: adminAuth.username, password: adminAuth.password });
+            const [authMessage, setAuthMessage] = useState('');
 
             const handleImageUpload = (e, settingKey) => {
                 const file = e.target.files[0];
@@ -137,24 +186,37 @@
             const handleAddProduct = (e) => {
                 e.preventDefault();
                 setProducts([{ ...newProduct, id: Date.now().toString() }, ...products]);
-                setNewProduct({ name: '', price: '', description: '', redirectUrl: '' }); // Reset
+                setNewProduct({ name: '', price: '', description: '', redirectUrl: '' }); 
+            };
+
+            const handleUpdateAuth = (e) => {
+                e.preventDefault();
+                setAdminAuth(newAuth);
+                setAuthMessage('Credentials updated successfully!');
+                setTimeout(() => setAuthMessage(''), 3000);
             };
 
             return (
                 <div className="max-w-6xl mx-auto px-4 py-8">
                     <div className="bg-gray-900/90 backdrop-blur-xl border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
-                        <div className="flex border-b border-gray-700 bg-gray-800/50">
-                            {['products', 'orders', 'settings'].map(tab => (
-                                <button 
-                                    key={tab} onClick={() => setActiveTab(tab)}
-                                    className={`flex-1 py-4 text-lg font-bold capitalize transition-colors ${activeTab === tab ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-400 hover:text-white'}`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
+                        <div className="flex border-b border-gray-700 bg-gray-800/50 justify-between items-center">
+                            <div className="flex">
+                                {['products', 'orders', 'settings'].map(tab => (
+                                    <button 
+                                        key={tab} onClick={() => setActiveTab(tab)}
+                                        className={`px-6 py-4 text-lg font-bold capitalize transition-colors ${activeTab === tab ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                        {tab}
+                                    </button>
+                                ))}
+                            </div>
+                            <button onClick={onLogout} className="mr-6 px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition font-bold">
+                                Logout
+                            </button>
                         </div>
 
                         <div className="p-8">
+                            {/* --- PRODUCTS TAB --- */}
                             {activeTab === 'products' && (
                                 <div className="space-y-8">
                                     <form onSubmit={handleAddProduct} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/50 p-6 rounded-xl border border-gray-700">
@@ -180,6 +242,7 @@
                                 </div>
                             )}
 
+                            {/* --- ORDERS TAB --- */}
                             {activeTab === 'orders' && (
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left text-gray-300 border-collapse">
@@ -205,21 +268,46 @@
                                 </div>
                             )}
 
+                            {/* --- SETTINGS TAB --- */}
                             {activeTab === 'settings' && (
-                                <div className="space-y-6 max-w-xl">
-                                    <div>
-                                        <label className="block text-white font-bold mb-2">Store Name</label>
-                                        <input type="text" className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} />
+                                <div className="space-y-10 max-w-xl">
+                                    {/* Store Visuals */}
+                                    <div className="space-y-6">
+                                        <h3 className="text-xl font-bold text-emerald-400 border-b border-gray-700 pb-2">Store Appearance</h3>
+                                        <div>
+                                            <label className="block text-white font-bold mb-2">Store Name</label>
+                                            <input type="text" className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="block text-white font-bold mb-2">Upload Logo Image</label>
+                                            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 transition cursor-pointer" />
+                                            {settings.logo && <img src={settings.logo} alt="Preview" className="mt-4 h-16 object-contain bg-white/10 p-2 rounded" />}
+                                        </div>
+                                        <div>
+                                            <label className="block text-white font-bold mb-2">Upload Background Image</label>
+                                            <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'background')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 transition cursor-pointer" />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-white font-bold mb-2">Upload Logo Image</label>
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 transition cursor-pointer" />
-                                        {settings.logo && <img src={settings.logo} alt="Preview" className="mt-4 h-16 object-contain bg-white/10 p-2 rounded" />}
+
+                                    {/* Admin Security */}
+                                    <div className="space-y-6 pt-4">
+                                        <h3 className="text-xl font-bold text-emerald-400 border-b border-gray-700 pb-2">Admin Security</h3>
+                                        <form onSubmit={handleUpdateAuth} className="bg-gray-800/50 p-6 rounded-xl border border-gray-700 space-y-4">
+                                            {authMessage && <div className="bg-emerald-500/20 text-emerald-400 p-3 rounded text-center font-bold mb-4">{authMessage}</div>}
+                                            <div>
+                                                <label className="block text-gray-400 mb-1">New Username</label>
+                                                <input required type="text" className="w-full p-3 bg-gray-900 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={newAuth.username} onChange={e => setNewAuth({...newAuth, username: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-400 mb-1">New Password</label>
+                                                <input required type="password" className="w-full p-3 bg-gray-900 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={newAuth.password} onChange={e => setNewAuth({...newAuth, password: e.target.value})} />
+                                            </div>
+                                            <button type="submit" className="w-full py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded shadow-lg transition mt-4">
+                                                Update Login Details
+                                            </button>
+                                        </form>
                                     </div>
-                                    <div>
-                                        <label className="block text-white font-bold mb-2">Upload Background Image</label>
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'background')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 transition cursor-pointer" />
-                                    </div>
+
                                 </div>
                             )}
                         </div>
@@ -229,12 +317,19 @@
         }
 
         // -----------------------------------------
-        // 3. MAIN APP ROUTER COMPONENT
+        // 4. MAIN APP ROUTER COMPONENT
         // -----------------------------------------
         function App() {
-            const [isAdmin, setIsAdmin] = useState(false);
+            // View States
+            const [viewMode, setViewMode] = useState('store'); // 'store' | 'admin-login' | 'admin-dashboard'
             
-            // Safe Initializations
+            // Admin Credentials State (Default: admin / password123)
+            const [adminAuth, setAdminAuth] = useState(() => loadSafe('kclAdminAuth', {
+                username: 'admin',
+                password: 'password123'
+            }));
+
+            // Store States
             const [settings, setSettings] = useState(() => loadSafe('kclSettings', {
                 storeName: 'KCL Digital Store',
                 logo: '',
@@ -243,7 +338,8 @@
             const [products, setProducts] = useState(() => loadSafe('kclProducts', []));
             const [orders, setOrders] = useState(() => loadSafe('kclOrders', []));
 
-            // Safe Saving
+            // Save to Local Storage
+            useEffect(() => saveSafe('kclAdminAuth', adminAuth), [adminAuth]);
             useEffect(() => saveSafe('kclSettings', settings), [settings]);
             useEffect(() => saveSafe('kclProducts', products), [products]);
             useEffect(() => saveSafe('kclOrders', orders), [orders]);
@@ -259,7 +355,6 @@
                 };
                 setOrders([newOrder, ...orders]);
                 
-                // Add a small delay so the order saves to memory before redirecting
                 setTimeout(() => {
                     if (product.redirectUrl) {
                         window.location.href = product.redirectUrl;
@@ -272,23 +367,46 @@
             return (
                 <div className="min-h-screen bg-cover bg-center bg-fixed transition-all duration-500" style={{ backgroundImage: `url(${settings.background})` }}>
                     <div className="min-h-screen bg-black/60 backdrop-blur-sm">
+                        
+                        {/* Navigation */}
                         <nav className="p-4 flex justify-end">
-                            <button onClick={() => setIsAdmin(!isAdmin)} className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg backdrop-blur-md border border-white/30 transition-all">
-                                {isAdmin ? 'View Storefront' : 'Admin Login'}
+                            <button 
+                                onClick={() => setViewMode(viewMode === 'store' ? 'admin-login' : 'store')} 
+                                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg backdrop-blur-md border border-white/30 transition-all"
+                            >
+                                {viewMode === 'store' ? 'Admin Login' : 'View Storefront'}
                             </button>
                         </nav>
-                        {isAdmin ? (
-                            <AdminDashboard settings={settings} setSettings={setSettings} products={products} setProducts={setProducts} orders={orders} />
-                        ) : (
+
+                        {/* View Routing */}
+                        {viewMode === 'store' && (
                             <UserStore settings={settings} products={products} onPlaceOrder={handlePlaceOrder} />
                         )}
+                        
+                        {viewMode === 'admin-login' && (
+                            <AdminLogin 
+                                credentials={adminAuth} 
+                                onLoginSuccess={() => setViewMode('admin-dashboard')} 
+                            />
+                        )}
+
+                        {viewMode === 'admin-dashboard' && (
+                            <AdminDashboard 
+                                settings={settings} setSettings={setSettings} 
+                                products={products} setProducts={setProducts} 
+                                orders={orders} 
+                                adminAuth={adminAuth} setAdminAuth={setAdminAuth}
+                                onLogout={() => setViewMode('store')}
+                            />
+                        )}
+
                     </div>
                 </div>
             );
         }
 
         // -----------------------------------------
-        // 4. RENDER ROOT
+        // 5. RENDER ROOT
         // -----------------------------------------
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
