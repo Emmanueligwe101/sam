@@ -7,8 +7,8 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
@@ -19,8 +19,32 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
+        // --- SAFE LOCAL STORAGE HELPERS ---
+        // These prevent the app from crashing to a blank screen if data is corrupted or blocked
+        const loadSafe = (key, defaultVal) => {
+            try {
+                const stored = localStorage.getItem(key);
+                if (!stored) return defaultVal;
+                const parsed = JSON.parse(stored);
+                // Ensure arrays stay arrays (prevents .map crashes)
+                if (Array.isArray(defaultVal) && !Array.isArray(parsed)) return defaultVal;
+                return parsed;
+            } catch (e) {
+                console.warn(`Could not load ${key} from storage.`, e);
+                return defaultVal;
+            }
+        };
+
+        const saveSafe = (key, value) => {
+            try {
+                localStorage.setItem(key, JSON.stringify(value));
+            } catch (e) {
+                console.warn(`Could not save ${key} to storage.`, e);
+            }
+        };
+
         // -----------------------------------------
-        // 1. STOREFRONT COMPONENT (What users see)
+        // 1. STOREFRONT COMPONENT
         // -----------------------------------------
         function UserStore({ settings, products, onPlaceOrder }) {
             const [selectedProduct, setSelectedProduct] = useState(null);
@@ -30,6 +54,7 @@
                 e.preventDefault();
                 onPlaceOrder(customer, selectedProduct);
                 setSelectedProduct(null);
+                setCustomer({ name: '', email: '' }); // Reset form
             };
 
             return (
@@ -49,7 +74,7 @@
                             {products.map((product) => (
                                 <div key={product.id} className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 flex flex-col hover:transform hover:scale-105 transition-all shadow-xl">
                                     <h2 className="text-2xl font-bold text-white mb-2">{product.name}</h2>
-                                    <p className="text-gray-300 text-sm mb-4 flex-grow">{product.description}</p>
+                                    <p className="text-gray-300 text-sm mb-4 flex-grow whitespace-pre-wrap">{product.description}</p>
                                     <div className="flex justify-between items-center mt-4">
                                         <span className="text-3xl font-extrabold text-emerald-400">₦{product.price}</span>
                                         <button 
@@ -74,16 +99,16 @@
                                     <input 
                                         type="text" required placeholder="Your Full Name"
                                         value={customer.name} onChange={e => setCustomer({...customer, name: e.target.value})}
-                                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
+                                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white outline-none focus:border-emerald-500"
                                     />
                                     <input 
                                         type="email" required placeholder="Your Email Address"
                                         value={customer.email} onChange={e => setCustomer({...customer, email: e.target.value})}
-                                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white"
+                                        className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-white outline-none focus:border-emerald-500"
                                     />
                                     <div className="flex gap-4 mt-6">
-                                        <button type="button" onClick={() => setSelectedProduct(null)} className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600">Cancel</button>
-                                        <button type="submit" className="flex-1 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg">Proceed to Pay</button>
+                                        <button type="button" onClick={() => setSelectedProduct(null)} className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition">Cancel</button>
+                                        <button type="submit" className="flex-1 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-lg transition">Proceed to Pay</button>
                                     </div>
                                 </form>
                             </div>
@@ -112,7 +137,7 @@
             const handleAddProduct = (e) => {
                 e.preventDefault();
                 setProducts([{ ...newProduct, id: Date.now().toString() }, ...products]);
-                setNewProduct({ name: '', price: '', description: '', redirectUrl: '' });
+                setNewProduct({ name: '', price: '', description: '', redirectUrl: '' }); // Reset
             };
 
             return (
@@ -134,19 +159,19 @@
                                 <div className="space-y-8">
                                     <form onSubmit={handleAddProduct} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-800/50 p-6 rounded-xl border border-gray-700">
                                         <h3 className="col-span-full text-xl font-bold text-white mb-2">Add New Product</h3>
-                                        <input required type="text" placeholder="Product Name" className="p-3 bg-gray-900 border border-gray-600 rounded text-white" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
-                                        <input required type="number" placeholder="Price (₦)" className="p-3 bg-gray-900 border border-gray-600 rounded text-white" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
-                                        <input required type="url" placeholder="Payment Redirect URL (e.g. Paystack link)" className="col-span-full p-3 bg-gray-900 border border-gray-600 rounded text-white" value={newProduct.redirectUrl} onChange={e => setNewProduct({...newProduct, redirectUrl: e.target.value})} />
-                                        <textarea required placeholder="Product Description" className="col-span-full p-3 bg-gray-900 border border-gray-600 rounded text-white h-24" value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
-                                        <button type="submit" className="col-span-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded shadow-lg">Publish Product</button>
+                                        <input required type="text" placeholder="Product Name" className="p-3 bg-gray-900 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
+                                        <input required type="number" placeholder="Price (₦)" className="p-3 bg-gray-900 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
+                                        <input required type="url" placeholder="Payment Redirect URL (e.g. Paystack link)" className="col-span-full p-3 bg-gray-900 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={newProduct.redirectUrl} onChange={e => setNewProduct({...newProduct, redirectUrl: e.target.value})} />
+                                        <textarea required placeholder="Product Description" className="col-span-full p-3 bg-gray-900 border border-gray-600 rounded text-white h-24 outline-none focus:border-emerald-500" value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
+                                        <button type="submit" className="col-span-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded shadow-lg transition">Publish Product</button>
                                     </form>
 
                                     <div className="space-y-4">
-                                        {products.map(p => (
+                                        {products.length === 0 ? <p className="text-gray-500">No products added yet.</p> : products.map(p => (
                                             <div key={p.id} className="flex justify-between items-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
                                                 <div>
                                                     <h4 className="text-white font-bold text-lg">{p.name} <span className="text-emerald-400 ml-2">₦{p.price}</span></h4>
-                                                    <p className="text-gray-400 text-sm">URL: {p.redirectUrl}</p>
+                                                    <p className="text-gray-400 text-sm overflow-hidden text-ellipsis whitespace-nowrap max-w-xs md:max-w-md">URL: {p.redirectUrl}</p>
                                                 </div>
                                                 <button onClick={() => setProducts(products.filter(item => item.id !== p.id))} className="px-4 py-2 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded transition">Delete</button>
                                             </div>
@@ -170,9 +195,9 @@
                                             {orders.length === 0 ? (<tr><td colSpan="4" className="p-4 text-center">No orders yet.</td></tr>) : orders.map(order => (
                                                 <tr key={order.id} className="border-b border-gray-700">
                                                     <td className="p-4 font-bold">{order.id}</td>
-                                                    <td className="p-4"><p>{order.customerName}</p><p className="text-sm text-gray-500">{order.customerEmail}</p></td>
-                                                    <td className="p-4"><p>{order.productName}</p><p className="text-emerald-400">₦{order.price}</p></td>
-                                                    <td className="p-4"><span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm">Pending</span></td>
+                                                    <td className="p-4"><p className="font-bold text-white">{order.customerName}</p><p className="text-sm text-gray-400">{order.customerEmail}</p></td>
+                                                    <td className="p-4"><p>{order.productName}</p><p className="text-emerald-400 font-bold">₦{order.price}</p></td>
+                                                    <td className="p-4"><span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-bold">Pending</span></td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -184,16 +209,16 @@
                                 <div className="space-y-6 max-w-xl">
                                     <div>
                                         <label className="block text-white font-bold mb-2">Store Name</label>
-                                        <input type="text" className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white" value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} />
+                                        <input type="text" className="w-full p-3 bg-gray-800 border border-gray-600 rounded text-white outline-none focus:border-emerald-500" value={settings.storeName} onChange={e => setSettings({...settings, storeName: e.target.value})} />
                                     </div>
                                     <div>
                                         <label className="block text-white font-bold mb-2">Upload Logo Image</label>
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-emerald-500/10 file:text-emerald-400" />
-                                        {settings.logo && <img src={settings.logo} alt="Preview" className="mt-4 h-16 object-contain" />}
+                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'logo')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 transition cursor-pointer" />
+                                        {settings.logo && <img src={settings.logo} alt="Preview" className="mt-4 h-16 object-contain bg-white/10 p-2 rounded" />}
                                     </div>
                                     <div>
                                         <label className="block text-white font-bold mb-2">Upload Background Image</label>
-                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'background')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-emerald-500/10 file:text-emerald-400" />
+                                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, 'background')} className="block w-full text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-400 hover:file:bg-emerald-500/20 transition cursor-pointer" />
                                     </div>
                                 </div>
                             )}
@@ -209,17 +234,19 @@
         function App() {
             const [isAdmin, setIsAdmin] = useState(false);
             
-            const [settings, setSettings] = useState(() => JSON.parse(localStorage.getItem('kclSettings')) || {
+            // Safe Initializations
+            const [settings, setSettings] = useState(() => loadSafe('kclSettings', {
                 storeName: 'KCL Digital Store',
                 logo: '',
                 background: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&w=1920&q=80'
-            });
-            const [products, setProducts] = useState(() => JSON.parse(localStorage.getItem('kclProducts')) || []);
-            const [orders, setOrders] = useState(() => JSON.parse(localStorage.getItem('kclOrders')) || []);
+            }));
+            const [products, setProducts] = useState(() => loadSafe('kclProducts', []));
+            const [orders, setOrders] = useState(() => loadSafe('kclOrders', []));
 
-            useEffect(() => localStorage.setItem('kclSettings', JSON.stringify(settings)), [settings]);
-            useEffect(() => localStorage.setItem('kclProducts', JSON.stringify(products)), [products]);
-            useEffect(() => localStorage.setItem('kclOrders', JSON.stringify(orders)), [orders]);
+            // Safe Saving
+            useEffect(() => saveSafe('kclSettings', settings), [settings]);
+            useEffect(() => saveSafe('kclProducts', products), [products]);
+            useEffect(() => saveSafe('kclOrders', orders), [orders]);
 
             const handlePlaceOrder = (customerData, product) => {
                 const newOrder = {
@@ -231,15 +258,41 @@
                     status: 'Payment Pending'
                 };
                 setOrders([newOrder, ...orders]);
-                window.location.href = product.redirectUrl; // Redirect to Paystack/Flutterwave
+                
+                // Add a small delay so the order saves to memory before redirecting
+                setTimeout(() => {
+                    if (product.redirectUrl) {
+                        window.location.href = product.redirectUrl;
+                    } else {
+                        alert("Error: Admin has not set a payment URL for this product.");
+                    }
+                }, 500);
             };
 
             return (
-                <div className="min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: `url(${settings.background})` }}>
-                    <div className="min-h-screen bg-black/50 backdrop-blur-sm">
+                <div className="min-h-screen bg-cover bg-center bg-fixed transition-all duration-500" style={{ backgroundImage: `url(${settings.background})` }}>
+                    <div className="min-h-screen bg-black/60 backdrop-blur-sm">
                         <nav className="p-4 flex justify-end">
                             <button onClick={() => setIsAdmin(!isAdmin)} className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg backdrop-blur-md border border-white/30 transition-all">
                                 {isAdmin ? 'View Storefront' : 'Admin Login'}
                             </button>
                         </nav>
                         {isAdmin ? (
+                            <AdminDashboard settings={settings} setSettings={setSettings} products={products} setProducts={setProducts} orders={orders} />
+                        ) : (
+                            <UserStore settings={settings} products={products} onPlaceOrder={handlePlaceOrder} />
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // -----------------------------------------
+        // 4. RENDER ROOT
+        // -----------------------------------------
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
